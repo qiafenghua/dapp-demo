@@ -1,0 +1,40 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "D:\\WebProjects\\node-demo\\crypto\\contracts\\BlockchainMessenger.sol": {
+      "lastModificationDate": 1750818223498,
+      "contentHash": "da70115c5b3f61a8acd68844614d5652",
+      "sourceName": "contracts/BlockchainMessenger.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "BlockchainMessenger"
+      ]
+    }
+  }
+}

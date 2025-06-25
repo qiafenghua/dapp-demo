@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>区块链消息应用</title>
+    <script src="./js/ethers.min.js" type="text/javascript"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+
+        .message-box {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            min-height: 100px;
+        }
+
+        .status {
+            color: #666;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .counter {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .debug-info {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .error {
+            color: #d9534f;
+            font-weight: bold;
+        }
+
+        .actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .metamask-guide {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fffaf0;
+            border: 1px solid #ffe4b5;
+            border-radius: 4px;
+        }
+
+        .step {
+            margin-bottom: 10px;
+        }
+
+        .wallet-selector {
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+
+        .wallet-button {
+            display: inline-block;
+            padding: 10px 15px;
+            margin: 5px;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .wallet-button:hover {
+            background-color: #e0e0e0;
+        }
+
+        .wallet-button img {
+            height: 24px;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>区块链消息应用</h1>
+
+        <div id="connection-status" class="status">
+            等待连接到以太坊网络...
+        </div>
+
+        <div class="wallet-selector">
+            <h3>选择钱包</h3>
+            <div id="metamask-button" class="wallet-button">
+                <img src="https://metamask.io/images/metamask-fox.svg" alt="MetaMask" width="24" height="24">
+                使用MetaMask连接
+            </div>
+            <div id="okx-button" class="wallet-button">
+                <img src="https://www.okx.com/cdn/assets/imgs/221/C5427694F1CF30FB.png" alt="OKX Wallet" width="24"
+                    height="24">
+                使用OKX钱包连接
+            </div>
+        </div>
+
+        <div class="actions">
+            <button id="refresh-button">刷新数据</button>
+        </div>
+
+        <div id="metamask-guide" class="metamask-guide">
+            <h3>钱包连接指南</h3>
+            <div class="step">1. 确保您已安装并解锁<a href="https://metamask.io/download/" target="_blank">MetaMask</a>或<a
+                    href="https://www.okx.com/web3" target="_blank">OKX钱包</a></div>
+            <div class="step">2. 通过HTTP服务器访问此页面（不要直接打开HTML文件）</div>
+            <div class="step">3. 在钱包中添加Hardhat网络：
+                <ul>
+                    <li>网络名称: Hardhat</li>
+                    <li>RPC URL: http://localhost:8545</li>
+                    <li>链ID: 31337</li>
+                    <li>货币符号: ETH</li>
+                </ul>
+            </div>
+            <div class="step">4. 导入Hardhat测试账户：
+                <ul>
+                    <li>打开钱包 -> 导入账户</li>
+                    <li>使用此私钥: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80</li>
+                    <li>此账户地址应为: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266（合约拥有者）</li>
+                </ul>
+            </div>
+            <div class="step">5. 点击上方的钱包按钮进行连接</div>
+        </div>
+
+        <div id="owner-controls" style="display:none;">
+            <h2>更新消息（仅合约拥有者）</h2>
+            <textarea id="new-message" placeholder="输入新消息"></textarea>
+            <button id="update-button">更新消息</button>
+        </div>
+
+        <h2>当前消息</h2>
+        <div class="message-box" id="current-message">
+            尚未连接到网络，无法加载消息...
+        </div>
+
+        <div class="status">
+            消息已更新 <span id="update-count" class="counter">-</span> 次
+        </div>
+
+        <div class="network-info">
+            <h3>网络信息</h3>
+            <p>合约地址: <span id="contract-address">0x5FbDB2315678afecb367f032d93F642f64180aa3</span></p>
+            <p>网络: <span id="network-name">未连接</span></p>
+            <p>您的地址: <span id="user-address">未连接</span></p>
+            <p>使用的钱包: <span id="wallet-type">未连接</span></p>
+        </div>
+
+        <div id="debug-container">
+            <h3>调试信息</h3>
+            <div id="debug-info" class="debug-info">等待连接...</div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        // 在开始时检查ethers是否加载
+        document.addEventListener('DOMContentLoaded', function () {
+            // 首先检查ethers是否已加载
+            checkEthersLoaded();
+
+            // 初始化应用
+            init();
+        });
+
+        // 检查ethers库是否加载
+        function checkEthersLoaded() {
+            console.log("检查ethers库加载状态...");
+
+            // 记录到页面
+            const debugElement = document.getElementById('debug-info');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+
+            if (typeof ethers !== 'undefined' && typeof ethers.Contract === 'function') {
+                logEntry.textContent = `[${timestamp}] ethers库已成功加载，版本：${ethers.version || '未知'}`;
+                console.log(`ethers库已成功加载，版本：${ethers.version || '未知'}`);
+            } else {
+                logEntry.textContent = `[${timestamp}] 警告：ethers库未完全加载，部分功能可能不可用`;
+                logEntry.classList.add('error');
+                console.warn("ethers库未完全加载，部分功能可能不可用");
+
+                // 尝试动态加载ethers
+                console.log("尝试动态加载ethers库...");
+                const script = document.createElement('script');
+                script.src = 'js/ethers.min.js';
+                script.onload = function () {
+                    const newEntry = document.createElement('div');
+                    const newTimestamp = new Date().toLocaleTimeString();
+                    newEntry.textContent = `[${newTimestamp}] ethers库已动态加载，刷新页面以应用`;
+                    debugElement.appendChild(newEntry);
+                    console.log("ethers库已动态加载，刷新页面以应用");
+                };
+                script.onerror = function () {
+                    const newEntry = document.createElement('div');
+                    const newTimestamp = new Date().toLocaleTimeString();
+                    newEntry.textContent = `[${newTimestamp}] 无法动态加载ethers库`;
+                    newEntry.classList.add('error');
+                    debugElement.appendChild(newEntry);
+                    console.error("无法动态加载ethers库");
+                };
+                document.head.appendChild(script);
+            }
+
+            debugElement.appendChild(logEntry);
+        }
+
+        // 初始化应用
+        function init() {
+            // 添加调试日志
+            function log(message, isError = false) {
+                const debugElement = document.getElementById('debug-info');
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = document.createElement('div');
+                logEntry.textContent = `[${timestamp}] ${message}`;
+                if (isError) {
+                    logEntry.classList.add('error');
+                }
+                debugElement.appendChild(logEntry);
+                debugElement.scrollTop = debugElement.scrollHeight;
+                console.log(`[${timestamp}] ${message}`);
+            }
+
+            log("应用初始化开始...");
+
+            // 检查ethers是否加载
+            if (typeof ethers === 'undefined') {
+                log("警告: ethers库未检测到，但将继续尝试连接...");
+            } else {
+                log("ethers库已成功加载");
+                try {
+                    log(`ethers版本: ${ethers.version}`);
+                } catch (e) {
+                    log("无法获取ethers版本，但继续尝试...");
+                }
+            }
+
+            // 检查以太坊环境
+            checkEthereumEnvironment();
+
+            // 合约地址 - 直接使用已部署的地址
+            const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+
+            // BlockchainMessenger合约ABI
+            const contractABI = [
+                "function readMessage() public view returns (string memory)",
+                "function getUpdateCount() public view returns (uint256)",
+                "function updateMessage(string memory) public",
+                "function owner() public view returns (address)"
+            ];
+
+            // 浏览器中模拟Buffer
+            const Buffer = {
+                from: function (str) {
+                    return {
+                        toString: function (encoding) {
+                            if (encoding === 'hex') {
+                                let hex = '';
+                                for (let i = 0; i < str.length; i++) {
+                                    const code = str.charCodeAt(i);
+                                    const hexChar = code.toString(16);
+                                    hex += hexChar.padStart(2, '0');
+                                }
+                                return hex;
+                            }
+                            return str;
+                        }
+                    };
+                }
+            };
+
+            // 已知函数签名
+            const knownSelectors = {
+                // 基于Solidity编译器计算的正确选择器
+                "updateMessage(string)": "0x6057361d",
+                "readMessage()": "0x7eed0172",
+                "getUpdateCount()": "0x31c3e456",
+                "owner()": "0x8da5cb5b"
+            };
+
+            // 用于生成字符串参数的ABI编码的辅助函数
+            function encodeStringParam(str) {
+                const hex = Buffer.from(str).toString('hex');
+
+                // 计算实际字节数
+                const byteLength = hex.length / 2;
+
+                // 计算参数偏移量（固定为32字节）
+                const offset = "0000000000000000000000000000000000000000000000000000000000000020";
+
+                // 计算长度（十六进制）
+                const length = byteLength.toString(16).padStart(64, '0');
+
+                // 填充字符串内容
+                const paddedHex = hex.padEnd(Math.ceil(hex.length / 64) * 64, '0');
+
+                return offset + length + paddedHex;
+            }
+
+            let contract = null;
+            let provider = null;
+            let signer = null;
+            let userAddress = null;
+            let contractOwner = null;
+            let walletType = "未知";
+
+            // 检测以太坊环境
+            function checkEthereumEnvironment() {
+                log("检查以太坊环境...");
+
+                // 检测各种钱包
+                const ethereum = window.ethereum;
+                const okxWallet = window.okxwallet || (ethereum && ethereum.isOkxWallet);
+                const metamask = window.ethereum && ethereum.isMetaMask && !ethereum.isOkxWallet;
+
+                if (ethereum) {
+                    log("检测到以太坊提供者 (window.ethereum 存在)");
+
+                    if (metamask) {
+                        log("检测到MetaMask钱包");
+                    } else if (okxWallet) {
+                        log("检测到OKX钱包");
+                    } else {
+                        log("检测到其他以太坊钱包");
+                    }
+
+                    if (typeof ethereum.request === 'function') {
+                        log("以太坊请求函数可用");
+                    } else {
+                        log("警告: window.ethereum.request 不是一个函数", true);
+                    }
+
+                    return true;
+                } else {
+                    log("未检测到以太坊提供者 (window.ethereum 不存在)", true);
+                    document.getElementById('connection-status').textContent =
+                        "错误: 未检测到以太坊钱包。请安装MetaMask或OKX钱包并刷新页面。";
+                    document.getElementById('connection-status').classList.add('error');
+                    return false;
+                }
+            }
+
+            // 连接到MetaMask
+            async function connectMetaMask() {
+                log("尝试连接MetaMask...");
+
+                // 检查是否有MetaMask特定对象
+                const metaMaskProvider = window.ethereum && window.ethereum.isMetaMask && !window.ethereum.isOkxWallet ?
+                    window.ethereum : null;
+
+                if (!metaMaskProvider) {
+                    // 尝试查找其他可能的MetaMask提供者
+                    let foundMetaMask = false;
+                    if (window.ethereum && window.ethereum.providers) {
+                        // 多提供者环境
+                        log("检测到多个钱包提供者...");
+                        for (const provider of window.ethereum.providers) {
+                            if (provider.isMetaMask && !provider.isOkxWallet) {
+                                log("在提供者列表中找到MetaMask");
+                                foundMetaMask = true;
+                                walletType = "MetaMask";
+                                document.getElementById('wallet-type').textContent = walletType;
+                                await connectToEthereum(provider);
+                                return;
+                            }
+                        }
+                    }
+
+                    if (!foundMetaMask) {
+                        log("未检测到MetaMask，请安装MetaMask扩展或将其设为默认钱包", true);
+                        alert("未检测到MetaMask，请安装MetaMask扩展并刷新页面，或在浏览器设置中将MetaMask设为默认钱包");
+                        return;
+                    }
+                }
+
+                walletType = "MetaMask";
+                document.getElementById('wallet-type').textContent = walletType;
+
+                await connectToEthereum(metaMaskProvider);
+            }
+
+            // 连接到OKX钱包
+            async function connectOKX() {
+                log("尝试连接OKX钱包...");
+
+                // 检查是否有OKX特定对象
+                const okxWallet = window.okxwallet || (window.ethereum && window.ethereum.isOkxWallet);
+
+                if (!okxWallet) {
+                    // 尝试查找其他可能的OKX提供者
+                    let foundOKX = false;
+                    if (window.ethereum && window.ethereum.providers) {
+                        // 多提供者环境
+                        log("检测到多个钱包提供者...");
+                        for (const provider of window.ethereum.providers) {
+                            if (provider.isOkxWallet) {
+                                log("在提供者列表中找到OKX钱包");
+                                foundOKX = true;
+                                walletType = "OKX钱包";
+                                document.getElementById('wallet-type').textContent = walletType;
+                                await connectToEthereum(provider);
+                                return;
+                            }
+                        }
+                    }
+
+                    if (!foundOKX) {
+                        log("未检测到OKX钱包，请安装OKX钱包扩展或将其设为默认钱包", true);
+                        alert("未检测到OKX钱包，请安装OKX钱包扩展并刷新页面，或在浏览器设置中将OKX钱包设为默认钱包");
+                        return;
+                    }
+                }
+
+                walletType = "OKX钱包";
+                document.getElementById('wallet-type').textContent = walletType;
+
+                // 使用检测到的OKX钱包
+                const provider = window.okxwallet || window.ethereum;
+                await connectToEthereum(provider);
+            }
+
+            // 连接到以太坊网络
+            async function connectToEthereum(provider) {
+                log(`开始连接到以太坊网络 (使用${walletType})...`);
+                document.getElementById('connection-status').textContent = "正在连接到以太坊网络...";
+
+                // 不再检查ethers是否存在，直接继续
+
+                try {
+                    // 检查是否安装了钱包
+                    if (!provider) {
+                        log("钱包未安装或无法访问", true);
+                        document.getElementById('connection-status').textContent =
+                            `错误: 未检测到${walletType}。请安装并刷新页面。`;
+                        return false;
+                    }
+
+                    try {
+                        // 请求用户授权
+                        log("请求用户授权...");
+                        const accounts = await provider.request({ method: 'eth_requestAccounts' });
+                        log(`获取到账户: ${accounts.join(', ')}`);
+
+                        try {
+                            // 创建提供者
+                            log("创建Web3Provider...");
+
+                            // 创建自定义提供者，如果ethers不可用
+                            if (typeof ethers === 'undefined') {
+                                log("使用备用方法创建提供者...");
+
+                                // 创建一个简单的兼容提供者
+                                window.ethProvider = {
+                                    getSigner: function () {
+                                        return {
+                                            getAddress: async function () {
+                                                return accounts[0];
+                                            }
+                                        };
+                                    },
+                                    getNetwork: async function () {
+                                        const chainId = await provider.request({ method: 'eth_chainId' });
+                                        return {
+                                            name: 'unknown',
+                                            chainId: parseInt(chainId, 16)
+                                        };
+                                    }
+                                };
+                            } else {
+                                window.ethProvider = new ethers.providers.Web3Provider(provider);
+                            }
+
+                            // 获取网络信息
+                            log("获取网络信息...");
+                            const network = await window.ethProvider.getNetwork();
+                            log(`连接到网络: ${network.name} (chainId: ${network.chainId})`);
+
+                            // 更新网络名称显示
+                            const networkName = network.name === 'unknown' ?
+                                (network.chainId === 31337 ? 'Hardhat本地网络' : `未知网络(${network.chainId})`) :
+                                network.name;
+                            document.getElementById('network-name').textContent = networkName;
+
+                            // 获取签名者和用户地址
+                            log("获取签名者...");
+                            signer = window.ethProvider.getSigner();
+                            userAddress = await signer.getAddress();
+                            log(`用户地址: ${userAddress}`);
+                            document.getElementById('user-address').textContent = userAddress;
+
+                            try {
+                                // 创建合约实例
+                                log("创建合约实例...");
+
+                                if (typeof ethers === 'undefined') {
+                                    log("无法创建完整合约实例，将使用简化版本...");
+
+                                    // 检查钱包是否可用
+                                    if (!provider || typeof provider.request !== 'function') {
+                                        log("警告：钱包提供者不可用或不支持请求功能，只能读取数据", true);
+                                    }
+
+                                    // 创建一个简单的合约代理
+                                    contract = {
+                                        address: contractAddress,
+                                        owner: async function () {
+                                            return "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+                                        },
+                                        readMessage: async function () {
+                                            return "合约读取错误 - ethers库未加载";
+                                        },
+                                        getUpdateCount: async function () {
+                                            return "0";
+                                        },
+                                        updateMessage: createBackupUpdateMessage(provider, contractAddress, userAddress)
+                                    };
+
+                                    // 简单的字符串编码函数
+                                    function encodeString(str) {
+                                        // 转换为十六进制
+                                        let hex = "";
+                                        for (let i = 0; i < str.length; i++) {
+                                            const code = str.charCodeAt(i);
+                                            const hexChar = code.toString(16);
+                                            hex += hexChar.padStart(2, '0');
+                                        }
+
+                                        // 计算长度部分（按Solidity编码规则）
+                                        const lengthHex = (str.length).toString(16).padStart(64, '0');
+
+                                        // 字符串内容部分（需要填充到32字节的倍数）
+                                        const contentHex = hex.padEnd(64, '0');
+
+                                        // 组合长度和内容
+                                        return lengthHex + contentHex;
+                                    }
+                                } else {
+                                    contract = new ethers.Contract(contractAddress, contractABI, signer);
+                                }
+
+                                log(`合约实例创建完成`);
+
+                                // 尝试获取合约拥有者
+                                try {
+                                    log("获取合约拥有者...");
+                                    contractOwner = await contract.owner();
+                                    log(`合约拥有者: ${contractOwner}`);
+
+                                    // 检查当前用户是否是合约拥有者
+                                    const isOwner = (userAddress.toLowerCase() === contractOwner.toLowerCase());
+                                    log(`当前用户${isOwner ? '是' : '不是'}合约拥有者`);
+                                    document.getElementById('owner-controls').style.display = isOwner ? 'block' : 'none';
+                                } catch (error) {
+                                    log(`获取合约拥有者失败: ${error.message}`, true);
+                                    if (error.message.includes('call revert exception')) {
+                                        log("合约可能不存在或地址错误", true);
+                                        log("请确保Hardhat节点正在运行，并且合约已正确部署", true);
+                                    }
+                                    document.getElementById('owner-controls').style.display = 'none';
+                                }
+
+                                document.getElementById('connection-status').textContent =
+                                    `已连接到以太坊网络 (${walletType})。你的地址: ${userAddress.substring(0, 6)}...${userAddress.substring(38)}`;
+                                document.getElementById('contract-address').textContent = contractAddress;
+
+                                // 隐藏钱包选择和指南
+                                document.getElementById('metamask-guide').style.display = 'none';
+                                document.querySelector('.wallet-selector').style.display = 'none';
+
+                                // 加载当前消息和更新次数
+                                refreshMessageAndCount();
+
+                                return true;
+                            } catch (error) {
+                                log(`创建合约实例出错: ${error.message}`, true);
+                                document.getElementById('connection-status').textContent =
+                                    `连接到合约错误: ${error.message}`;
+                                return false;
+                            }
+                        } catch (error) {
+                            log(`创建提供者出错: ${error.message}`, true);
+                            document.getElementById('connection-status').textContent =
+                                `创建提供者错误: ${error.message}`;
+                            return false;
+                        }
+                    } catch (error) {
+                        log(`请求账户出错: ${error.message}`, true);
+                        if (error.code === 4001) {
+                            document.getElementById('connection-status').textContent = "连接被用户拒绝";
+                        } else {
+                            document.getElementById('connection-status').textContent = `${walletType}连接错误: ${error.message}`;
+                        }
+                        return false;
+                    }
+                } catch (error) {
+                    log(`连接到以太坊网络时出错: ${error.message}`, true);
+                    document.getElementById('connection-status').textContent =
+                        `连接错误: ${error.message}`;
+                    return false;
+                }
+            }
+
+            // 刷新消息和计数
+            async function refreshMessageAndCount() {
+                if (!contract) {
+                    log("未连接到合约，无法刷新数据", true);
+                    document.getElementById('current-message').textContent = "未连接到合约";
+                    document.getElementById('update-count').textContent = "-";
+                    return;
+                }
+
+                log("刷新消息和计数...");
+                try {
+                    log("读取消息...");
+                    const message = await contract.readMessage();
+                    log(`获取到消息: "${message}"`);
+
+                    log("获取更新次数...");
+                    const count = await contract.getUpdateCount();
+                    log(`获取到更新次数: ${count}`);
+
+                    document.getElementById('current-message').textContent = message;
+                    document.getElementById('update-count').textContent = count.toString();
+                } catch (error) {
+                    log(`获取消息时出错: ${error.message}`, true);
+                    document.getElementById('current-message').textContent = "获取消息时出错: " + error.message;
+
+                    if (error.message.includes('call revert exception')) {
+                        log("合约可能不存在或地址错误", true);
+                        log("请确保：1. Hardhat节点正在运行；2. 合约已成功部署；3. 您连接到正确的网络", true);
+                    }
+                }
+            }
+
+            // 更新消息
+            async function updateMessage() {
+                const newMessage = document.getElementById('new-message').value.trim();
+                if (!newMessage) {
+                    log("消息内容为空，无法更新", true);
+                    alert("请输入消息内容");
+                    return;
+                }
+
+                log(`准备更新消息为: "${newMessage}"`);
+                try {
+                    document.getElementById('update-button').disabled = true;
+                    document.getElementById('update-button').textContent = "处理中...";
+
+                    // 调用合约更新消息
+                    log("发送更新消息交易...");
+                    const tx = await contract.updateMessage(newMessage);
+                    log(`交易已发送，哈希: ${tx.hash}`);
+
+                    // 等待交易确认
+                    document.getElementById('update-button').textContent = "等待确认...";
+                    log("等待交易确认...");
+                    await tx.wait();
+                    log("交易已确认");
+
+                    // 刷新显示
+                    refreshMessageAndCount();
+
+                    // 重置表单
+                    document.getElementById('new-message').value = '';
+                    document.getElementById('update-button').disabled = false;
+                    document.getElementById('update-button').textContent = "更新消息";
+
+                    alert("消息已成功更新！");
+                } catch (error) {
+                    log(`更新消息时出错: ${error.message}`, true);
+                    alert(`更新消息时出错: ${error.message}`);
+                    document.getElementById('update-button').disabled = false;
+                    document.getElementById('update-button').textContent = "更新消息";
+                }
+            }
+
+            // 备用合约实现的updateMessage方法
+            function createBackupUpdateMessage(provider, contractAddress, userAddress) {
+                return async function (newMessage) {
+                    log("使用备用方法调用updateMessage...");
+
+                    try {
+                        // 使用已知选择器和参数编码工具
+                        const selector = knownSelectors["updateMessage(string)"];
+                        const encodedParams = encodeStringParam(newMessage);
+
+                        // 使用原始provider发送交易
+                        const txData = {
+                            to: contractAddress,
+                            data: selector + encodedParams,
+                            from: userAddress,
+                            // 指定gas限制
+                            gas: '0x186A0' // 100000 gas
+                        };
+
+                        log(`准备发送交易: ${JSON.stringify(txData)}`);
+
+                        const txHash = await provider.request({
+                            method: 'eth_sendTransaction',
+                            params: [txData]
+                        }).catch(error => {
+                            log(`发送交易失败: ${error.message}`, true);
+
+                            // 提供更详细的错误信息
+                            if (error.code) {
+                                log(`错误代码: ${error.code}`, true);
+                            }
+
+                            if (error.data) {
+                                log(`错误数据: ${JSON.stringify(error.data)}`, true);
+                            }
+
+                            // 特定错误类型处理
+                            if (error.message.includes('Internal JSON-RPC error')) {
+                                log("这可能是钱包内部错误或者gas不足，请尝试以下解决方案:", true);
+                                log("1. 确保你的账户有足够的ETH", true);
+                                log("2. 尝试使用不同的钱包扩展", true);
+                                log("3. 确保你是合约的拥有者", true);
+                                log("4. 重新加载页面并重试", true);
+
+                                // 尝试确认当前用户是否为合约拥有者
+                                try {
+                                    const ownerSelector = knownSelectors["owner()"];
+                                    provider.request({
+                                        method: 'eth_call',
+                                        params: [{
+                                            to: contractAddress,
+                                            data: ownerSelector
+                                        }, 'latest']
+                                    }).then(result => {
+                                        // 解析返回的地址
+                                        const ownerAddress = '0x' + result.slice(26);
+                                        log(`合约拥有者地址: ${ownerAddress}`, false);
+                                        log(`当前用户地址: ${userAddress}`, false);
+                                        if (ownerAddress.toLowerCase() !== userAddress.toLowerCase()) {
+                                            log("错误: 当前用户不是合约拥有者，无法更新消息", true);
+                                        }
+                                    }).catch(e => {
+                                        log(`无法获取合约拥有者: ${e.message}`, true);
+                                    });
+                                } catch (e) {
+                                    log(`检查合约拥有者时出错: ${e.message}`, true);
+                                }
+                            }
+
+                            throw error;
+                        });
+
+                        log(`交易发送成功，哈希: ${txHash}`);
+
+                        // 模拟交易等待对象
+                        return {
+                            hash: txHash,
+                            wait: async function () {
+                                log("等待交易确认...");
+                                // 轮询交易收据
+                                let receipt = null;
+                                let attempts = 0;
+                                const maxAttempts = 30; // 最多等待30次
+
+                                while (!receipt && attempts < maxAttempts) {
+                                    attempts++;
+                                    try {
+                                        receipt = await provider.request({
+                                            method: 'eth_getTransactionReceipt',
+                                            params: [txHash]
+                                        });
+
+                                        if (!receipt) {
+                                            log(`等待交易确认...尝试 ${attempts}/${maxAttempts}`);
+                                            // 等待1秒再次检查
+                                            await new Promise(resolve => setTimeout(resolve, 1000));
+                                        }
+                                    } catch (error) {
+                                        log(`获取交易收据出错: ${error.message}`, true);
+                                        throw error;
+                                    }
+                                }
+
+                                if (!receipt) {
+                                    throw new Error("交易确认超时");
+                                }
+
+                                log(`交易已确认: ${JSON.stringify(receipt)}`);
+                                return receipt;
+                            }
+                        };
+                    } catch (error) {
+                        log(`使用备用方法更新消息失败: ${error.message}`, true);
+                        throw error;
+                    }
+                };
+            }
+
+            // 监听网络变化 (仅MetaMask支持)
+            if (window.ethereum) {
+                window.ethereum.on('chainChanged', (chainId) => {
+                    log(`网络已更改，新的chainId: ${chainId}`);
+                    log("刷新页面以连接到新网络...");
+                    window.location.reload();
+                });
+
+                window.ethereum.on('accountsChanged', (accounts) => {
+                    log(`账户已更改，新账户: ${accounts.join(', ')}`);
+                    if (accounts.length === 0) {
+                        log("用户已断开连接", true);
+                        document.getElementById('connection-status').textContent = "已断开连接";
+                        document.getElementById('owner-controls').style.display = 'none';
+                    } else {
+                        log("重新连接到新账户...");
+                        if (walletType === "MetaMask") {
+                            connectMetaMask();
+                        } else if (walletType === "OKX钱包") {
+                            connectOKX();
+                        }
+                    }
+                });
+            }
+
+            // 设置事件监听器
+            document.getElementById('metamask-button').addEventListener('click', connectMetaMask);
+            document.getElementById('okx-button').addEventListener('click', connectOKX);
+            document.getElementById('refresh-button').addEventListener('click', refreshMessageAndCount);
+            document.getElementById('update-button').addEventListener('click', updateMessage);
+
+            // 初始日志
+            log(`当前URL协议: ${window.location.protocol}`);
+
+            if (window.location.protocol === 'file:') {
+                log("警告：当前使用file://协议打开页面，钱包可能无法正常工作。请通过HTTP服务器访问。", true);
+            }
+        }
+    </script>
+</body>
+
+</html>

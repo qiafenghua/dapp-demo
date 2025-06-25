@@ -1,0 +1,16 @@
+{
+  "name": "crypto-demo",
+  "version": "1.0.0",
+  "description": "crypto demo",
+  "main": "deploy.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "ikart",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "ethers": "^5.7.2",
+    "hardhat": "^2.25.0"
+  }
+}
